@@ -1,1 +1,3 @@
 .idea
+data/yfinance.cache
+models/__pycache__/

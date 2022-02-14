@@ -315,4 +315,4 @@ class LeadingDiagonal(WaveRule):
         delta_x = x2 - x1
         delta_y = y2 - y1
 
-        return delta_y / delta_x
+        return delta_y / delta_x if delta_x != 0 else 0
