@@ -10,12 +10,13 @@ from models.WaveRules import Impulse, LeadingDiagonal
 from models.WaveAnalyzer import WaveAnalyzer
 from models.WaveOptions import WaveOptionsGenerator5
 from models.helpers import plot_pattern
+from models.WaveScore import WaveScore
 
 from multiprocessing import Pool
 
-POOL = 7  # 1 for single process; 2 or more for multiprocessing (limited debugging)
-PERIOD = '1mo'
-INTERVAL = '1h'
+POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
+PERIOD = '1d'
+INTERVAL = '5m'
 WAVE_UP_TO = 5
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
@@ -31,11 +32,12 @@ def main():
     report = DataFrame()
     for ticker in TICKERS:
         yf_ticker = yf.Ticker(ticker, session=session)
-        hist_1h = yf_ticker.history(period=PERIOD, interval=INTERVAL)
-        ohlc_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'}
+        data = yf_ticker.history(period=PERIOD, interval=INTERVAL)
 
         # Merging 1h into 4h dataframe
-        data = hist_1h.resample('240T').apply(ohlc_dict).dropna(how='any')
+        # ohlc_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'}
+        # data = hist_1h.resample('240T').apply(ohlc_dict).dropna(how='any')
+
         data['Date'] = data.index
 
         args = {
@@ -57,7 +59,6 @@ def main():
                 report = report.append(result)
             p.close()
             p.join()
-
 
     print(report)
 
@@ -95,22 +96,24 @@ def worker(params: {}) -> {}:
 
         if waves_up:
             wavepattern_up = WavePattern(waves_up, verbose=True)
-
             for rule in rules_to_check:
-
                 if wavepattern_up.check_rule(rule):
                     if wavepattern_up in wavepatterns_up:
                         continue
                     else:
+                        scoring = WaveScore(waves_up)
+                        score = scoring.value()
                         wavepatterns_up.add(wavepattern_up)
                         print(f'{rule.name} found: {new_option_impulse.values}')
                         result = {
                             'ticker': ticker,
                             'rule': rule.name,
-                            'new_option_impulse': new_option_impulse.values
+                            'new_option_impulse': new_option_impulse.values,
+                            'score': score
                         }
                         plot_pattern(df=data, wave_pattern=wavepattern_up,
-                                     title=ticker + ': ' + str(new_option_impulse))
+                                     title=ticker + ': ' + str(
+                                         new_option_impulse) + " - Score: " + "{:.2f}".format(score))
                         sleep(1)
                         results = results.append(result, ignore_index=True)
     return results
