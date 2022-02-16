@@ -8,7 +8,7 @@ from pandas import DataFrame
 from models.WavePattern import WavePattern
 from models.WaveRules import Impulse, LeadingDiagonal
 from models.WaveAnalyzer import WaveAnalyzer
-from models.WaveOptions import WaveOptionsGenerator5
+from models.WaveOptions import WaveOptionsGeneratorWithRange
 from models.helpers import plot_pattern
 from models.WaveScore import WaveScore
 
@@ -17,13 +17,15 @@ from multiprocessing import Pool
 POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
 INTERVAL = '5m'
-WAVE_UP_TO = 5
+WAVE_UP_TO = 20
+WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
+TRESHOLD = 0.5
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
            'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
 
+# TICKERS = ['AUDUSD=X']
 
-# tickers = ['EURUSD=X']
 
 def main():
     session = requests_cache.CachedSession('data/yfinance.cache')
@@ -68,7 +70,7 @@ def worker(params: {}) -> {}:
     ticker = params['ticker']
 
     wa = WaveAnalyzer(df=data, verbose=False)
-    wave_options_impulse = WaveOptionsGenerator5(up_to=WAVE_UP_TO)
+    wave_options_impulse = WaveOptionsGeneratorWithRange(up_to=WAVE_UP_TO, with_range=WITH_RANGE)
 
     impulse = Impulse('impulse')
     leading_diagonal = LeadingDiagonal('leading diagonal')
@@ -92,7 +94,7 @@ def worker(params: {}) -> {}:
     results = DataFrame()
     for new_option_impulse in wave_options_impulse.options_sorted:
 
-        waves_up = wa.find_impulsive_wave(idx_start=idx_start, wave_config=new_option_impulse.values)
+        waves_up = wa.find_5_impulsive_waves(idx_start=idx_start, wave_config=new_option_impulse.values)
 
         if waves_up:
             wavepattern_up = WavePattern(waves_up, verbose=True)
@@ -103,19 +105,20 @@ def worker(params: {}) -> {}:
                     else:
                         scoring = WaveScore(waves_up)
                         score = scoring.value()
-                        wavepatterns_up.add(wavepattern_up)
-                        print(f'{rule.name} found: {new_option_impulse.values}')
-                        result = {
-                            'ticker': ticker,
-                            'rule': rule.name,
-                            'new_option_impulse': new_option_impulse.values,
-                            'score': score
-                        }
-                        plot_pattern(df=data, wave_pattern=wavepattern_up,
-                                     title=ticker + ': ' + str(
-                                         new_option_impulse) + " - Score: " + "{:.2f}".format(score))
-                        sleep(1)
-                        results = results.append(result, ignore_index=True)
+                        if score > TRESHOLD:
+                            wavepatterns_up.add(wavepattern_up)
+                            print(f'{rule.name} found: {new_option_impulse.values}')
+                            result = {
+                                'ticker': ticker,
+                                'rule': rule.name,
+                                'new_option_impulse': new_option_impulse.values,
+                                'score': score
+                            }
+                            plot_pattern(df=data, wave_pattern=wavepattern_up,
+                                         title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
+                                             new_option_impulse) + " - Score: " + "{:.2f}".format(score))
+                            sleep(1)
+                            results = results.append(result, ignore_index=True)
     return results
 
 

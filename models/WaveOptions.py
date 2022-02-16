@@ -71,7 +71,7 @@ class WaveOptions:
                     if self.l < other.l:
                         return True
                     elif self.l == other.l:
-                        if self.m < other.m:
+                        if self.m is None or other.m is None or self.m < other.m:
                             return True
                         else:
                             return False
@@ -142,6 +142,39 @@ class WaveOptionsGenerator5(WaveOptionsGenerator):
                             checked.add(wave_options)
         return checked
 
+class WaveOptionsGeneratorWithRange(WaveOptionsGenerator):
+    """
+    WaveOptionsGenerator for impulsive N movements
+
+    """
+    def __init__(self, up_to: int, with_range: int):
+        self.__up_to = up_to
+        self.__range = with_range
+        self.options = self.populate()
+
+    def populate(self) -> set:
+        checked = set()
+
+        for i in range(0, self.__up_to):
+            start_from = i - self.__range if i - self.__range >= 0 else 0
+            up_to = i + self.__range if i + self.__range < self.__up_to else self.__up_to
+            for j in range(start_from, up_to):
+                for k in range(start_from, up_to):
+                    for l in range(start_from, up_to):
+                        for m in range(start_from, up_to):
+                            if i == 0:
+                                j = k = l = m = 0
+                            if j == 0:
+                                k = l = m = 0
+                            if k == 0:
+                                l = m = 0
+                            if l == 0:
+                                m = 0
+                            wave_options = WaveOptions(i, j, k, l, m)
+                            checked.add(wave_options)
+                        wave_options = WaveOptions(i, j, k, l)
+                        checked.add(wave_options)
+        return checked
 
 class WaveOptionsGenerator2(WaveOptionsGenerator):
     """

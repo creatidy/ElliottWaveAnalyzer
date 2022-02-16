@@ -33,7 +33,7 @@ wavepatterns_up = set()
 # large e.g. [3,2, ...]
 for new_option_impulse in wave_options_impulse.options_sorted:
 
-    waves_up = wa.find_impulsive_wave(idx_start=idx_start, wave_config=new_option_impulse.values)
+    waves_up = wa.find_5_impulsive_waves(idx_start=idx_start, wave_config=new_option_impulse.values)
 
     if waves_up:
         wavepattern_up = WavePattern(waves_up, verbose=True)

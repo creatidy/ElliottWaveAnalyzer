@@ -48,7 +48,7 @@ class Impulse(WaveRule):
             "w3_1": {
                 "waves": ["wave1", "wave3", "wave5"],
                 "function": lambda wave1, wave3, wave5: not (
-                    wave3.length < wave5.length and wave3.length < wave1.length
+                    (wave5 is None and wave3.length < wave1.length) or (wave5 is not None and wave3.length < wave5.length and wave3.length < wave1.length)
                 ),
                 "message": "Wave3 is the shortest Wave.",
             },
@@ -86,12 +86,12 @@ class Impulse(WaveRule):
             # WAVE 5
             "w5_1": {
                 "waves": ["wave3", "wave5"],
-                "function": lambda wave3, wave5: wave3.high < wave5.high,
+                "function": lambda wave3, wave5: wave5 is None or wave3.high < wave5.high,
                 "message": "End of Wave5 is lower than End of Wave3",
             },
             "w5_2": {
                 "waves": ["wave1", "wave5"],
-                "function": lambda wave1, wave5: wave5.length < 2.0 * wave1.length,
+                "function": lambda wave1, wave5: wave5 is None or wave5.length < 2.0 * wave1.length,
                 "message": "Wave5 is longer (value wise) than Wave1",
             },
         }
@@ -230,7 +230,7 @@ class LeadingDiagonal(WaveRule):
             "w3_1": {
                 "waves": ["wave1", "wave3", "wave5"],
                 "function": lambda wave1, wave3, wave5: not (
-                    wave3.length < wave5.length and wave3.length < wave1.length
+                    (wave5 is None and wave3.length < wave1.length) or (wave5 is not None and wave3.length < wave5.length and wave3.length < wave1.length)
                 ),
                 "message": "Wave3 is the shortest Wave.",
             },
@@ -268,22 +268,22 @@ class LeadingDiagonal(WaveRule):
             # WAVE 5
             "w5_1": {
                 "waves": ["wave3", "wave5"],
-                "function": lambda wave3, wave5: wave3.high < wave5.high,
+                "function": lambda wave3, wave5: wave5 is None or wave3.high < wave5.high,
                 "message": "End of Wave5 is lower than End of Wave3",
             },
             "w5_2": {
                 "waves": ["wave1", "wave5"],
-                "function": lambda wave1, wave5: wave5.length < 2.0 * wave1.length,
+                "function": lambda wave1, wave5: wave5 is None or wave5.length < 2.0 * wave1.length,
                 "message": "Wave5 is longer (value wise) than 2.0 x Wave1",
             },
             "w5_3": {
                 "waves": ["wave1", "wave5"],
-                "function": lambda wave1, wave5: wave5.length > 0.70 * wave1.length,
+                "function": lambda wave1, wave5: wave5 is None or wave5.length > 0.70 * wave1.length,
                 "message": "Wave5 is shorter (value wise) than 0.70 x Wave1",
             },
             "w5_4": {
                 "waves": ["wave3", "wave5"],
-                "function": lambda wave3, wave5: wave5.length < wave3.length,
+                "function": lambda wave3, wave5: wave5 is None or wave5.length < wave3.length,
                 "message": "Wave5 is not shorter (value wise) than Wave3",
             },
         }

@@ -76,7 +76,8 @@ class WavePattern:
 
     @property
     def high(self) -> float:
-        return self.__waves[-1].high
+        ret = self.__waves[-1].high if self.__waves[-1] is not None else self.__waves[-2].high
+        return ret
 
     @property
     def idx_start(self) -> int:
@@ -93,7 +94,8 @@ class WavePattern:
     def dates(self):
         dates = list()
         for wave_no, wave in self.waves.items():
-            dates.extend(wave.dates)
+            if wave is not None:
+                dates.extend(wave.dates)
 
         return dates
 
@@ -105,6 +107,8 @@ class WavePattern:
                 values.extend([wave.low, wave.high])
             elif isinstance(wave, MonoWaveDown):
                 values.extend([wave.high, wave.low])
+            elif wave is None:
+                pass
             else:
                 raise NotImplementedError()
 
@@ -121,14 +125,16 @@ class WavePattern:
         reference_length = next(iter(self.waves.items()))[1].length
 
         for wave_no, wave in self.waves.items():
-            if wave.label in ['B', '2', '3']:
+            if wave is None:
+                pass
+            elif wave.label in ['B', '2', '3']:
                 labels.extend([" ", f'{wave.label} ({round(wave.length/reference_length, 3)})'])
             else:
                 labels.extend([" ", f'{wave.label}'])
         return labels
 
     def __eq__(self, other):
-        if all([self.waves[key].low == other.waves[key].low and self.waves[key].high == other.waves[key].high for key, value in self.waves.items()]):
+        if all([self.waves[key].low == other.waves[key].low and self.waves[key].high == other.waves[key].high for key, value in self.waves.items() if other.waves[key] is not None and self.waves[key] is not None]):
             return True
         else:
             return False

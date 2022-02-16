@@ -48,9 +48,9 @@ class WaveAnalyzer:
         self.__waveoptions_up = WaveOptionsGenerator5(n_up)
         self.__waveoptions_down = WaveOptionsGenerator3(n_down)
 
-    def find_impulsive_wave(self,
-                            idx_start: int,
-                            wave_config: list = None):
+    def find_5_impulsive_waves(self,
+                               idx_start: int,
+                               wave_config: list = None):
         """
         Tries to find 5 consecutive waves (up, down, up, down, up) to build an impulsive 12345 wave
 
@@ -98,16 +98,19 @@ class WaveAnalyzer:
         if wave2.low_idx != wave4.low_idx and wave2.low > np.min(self.lows[wave2.low_idx:wave4.low_idx]):
             return False
 
-        wave5 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave4_end, skip=wave_config[4])
-        wave5.label = '5'
-        wave5_end = wave5.idx_end
-        if wave5_end is None:
-            if self.verbose: print("Wave 5 has no End in Data")
-            return False
+        if wave_config[4] is not None:
+            wave5 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave4_end, skip=wave_config[4])
+            wave5.label = '5'
+            wave5_end = wave5.idx_end
+            if wave5_end is None:
+                if self.verbose: print("Wave 5 has no End in Data")
+                return False
 
-        if wave4.low_idx != wave5.high_idx and wave4.low > np.min(self.lows[wave4.low_idx:wave5.high_idx]):
-            if self.verbose: print('Low of Wave 4 higher than a low between Wave 4 and Wave 5')
-            return False
+            if wave4.low_idx != wave5.high_idx and wave4.low > np.min(self.lows[wave4.low_idx:wave5.high_idx]):
+                if self.verbose: print('Low of Wave 4 higher than a low between Wave 4 and Wave 5')
+                return False
+        else:
+            wave5 = None
 
         return [wave1, wave2, wave3, wave4, wave5]
 
@@ -176,8 +179,8 @@ class WaveAnalyzer:
         for new_option_impulse in self.__waveoptions_up.options_sorted:
 
             cycle_complete = False
-            waves_up = self.find_impulsive_wave(idx_start=start_idx,
-                                                wave_config=new_option_impulse.values)
+            waves_up = self.find_5_impulsive_waves(idx_start=start_idx,
+                                                   wave_config=new_option_impulse.values)
 
             if waves_up:
                 wavepattern_up = WavePattern(waves_up, verbose=False)
