@@ -17,13 +17,12 @@ from multiprocessing import Pool
 POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
 INTERVAL = '5m'
-WAVE_UP_TO = 20
+WAVE_UP_TO = 15
 WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
 TRESHOLD = 0.5
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
            'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
-
 # TICKERS = ['AUDUSD=X']
 
 
@@ -106,19 +105,26 @@ def worker(params: {}) -> {}:
                         scoring = WaveScore(waves_up)
                         score = scoring.value()
                         if score > TRESHOLD:
-                            wavepatterns_up.add(wavepattern_up)
-                            print(f'{rule.name} found: {new_option_impulse.values}')
-                            result = {
-                                'ticker': ticker,
-                                'rule': rule.name,
-                                'new_option_impulse': new_option_impulse.values,
-                                'score': score
-                            }
-                            plot_pattern(df=data, wave_pattern=wavepattern_up,
-                                         title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
-                                             new_option_impulse) + " - Score: " + "{:.2f}".format(score))
-                            sleep(1)
-                            results = results.append(result, ignore_index=True)
+                            to_check = []
+                            if new_option_impulse.m is None and len(results) > 0:
+                                to_check = [r for r in results['new_option_impulse'] if r[0] == new_option_impulse.i and \
+                                            r[1] == new_option_impulse.j and \
+                                            r[2] == new_option_impulse.k and \
+                                            r[3] == new_option_impulse.l]
+                            if len(to_check) == 0:
+                                wavepatterns_up.add(wavepattern_up)
+                                print(f'{rule.name} found: {new_option_impulse.values}')
+                                result = {
+                                    'ticker': ticker,
+                                    'rule': rule.name,
+                                    'new_option_impulse': new_option_impulse.values,
+                                    'score': score
+                                }
+                                plot_pattern(df=data, wave_pattern=wavepattern_up,
+                                             title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
+                                                 new_option_impulse) + " - Score: " + "{:.2f}".format(score))
+                                sleep(1)
+                                results = results.append(result, ignore_index=True)
     return results
 
 

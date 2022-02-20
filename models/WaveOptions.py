@@ -113,7 +113,9 @@ class WaveOptionsGenerator(ABC):
         :return:
         """
         all_options = list(self.options)
-        return sorted(all_options)
+        all_options_5 = sorted([k for k in all_options if k.m is not None])
+        all_options_4 = ([k for k in all_options if k.m is None])
+        return all_options_5 + all_options_4
 
 
 class WaveOptionsGenerator5(WaveOptionsGenerator):
