@@ -17,13 +17,14 @@ from multiprocessing import Pool
 POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
 INTERVAL = '5m'
+VLT_WINDOW = 12
 WAVE_UP_TO = 15
 WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
 TRESHOLD = 0.5
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
            'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
-# TICKERS = ['AUDUSD=X']
+TICKERS = ['AUDUSD=X']
 
 
 def main():
@@ -63,10 +64,31 @@ def main():
 
     print(report)
 
+def find_minimums(data: DataFrame):
+    '''
+    Finds local minimal values
+    '''
+
+    data['Lowest_Start'] = data['Low'].rolling(window=VLT_WINDOW, min_periods=VLT_WINDOW).min()
+    data['Minimum_Start'] = data['Low'] == data['Lowest_Start']
+    # Reverse datafreame
+    data = data.iloc[::-1]
+    data.loc[:, 'Lowest_End'] = data['Low'].rolling(window=VLT_WINDOW, min_periods=VLT_WINDOW).min()
+    data.loc[:, 'Minimum_End'] = data['Low'] == data['Lowest_End']
+    # Reverse datafreame
+    data = data.iloc[::-1]
+    # Minimum should be from both sides
+    data['Minimum'] = np.logical_and(data['Minimum_Start'], data['Minimum_End'])
+    # Remove unnecessary columns
+    data = data.drop(['Lowest_Start', 'Minimum_Start', 'Lowest_End', 'Minimum_End'], axis=1)
+    return data
+
 
 def worker(params: {}) -> {}:
     data = params['data']
     ticker = params['ticker']
+
+    data = find_minimums(data)
 
     wa = WaveAnalyzer(df=data, verbose=False)
     wave_options_impulse = WaveOptionsGeneratorWithRange(up_to=WAVE_UP_TO, with_range=WITH_RANGE)
@@ -74,10 +96,11 @@ def worker(params: {}) -> {}:
     impulse = Impulse('impulse')
     leading_diagonal = LeadingDiagonal('leading diagonal')
     rules_to_check = [impulse, leading_diagonal]
+
     idx_start = np.argmin(np.array(list(data['Low'])))
 
-    print(f'Start at idx: {idx_start}')
-    print(f'will run up to {wave_options_impulse.number / 1e6}M combinations.')
+    # print(f'Start at idx: {idx_start}')
+    # print(f'will run up to {wave_options_impulse.number / 1e6}M combinations.')
 
     # set up a set to store already found wave counts
     # it can be the case, that 2 WaveOptions lead to the same WavePattern.
@@ -93,9 +116,9 @@ def worker(params: {}) -> {}:
     results = DataFrame()
     for new_option_impulse in wave_options_impulse.options_sorted:
 
-        waves_up = wa.find_5_impulsive_waves(idx_start=idx_start, wave_config=new_option_impulse.values)
-
-        if waves_up:
+        all_waves_up = wa.find_5_impulsive_waves(wave_config=new_option_impulse.values)
+        wavepatterns_up_to_plot = []
+        for waves_up in all_waves_up:
             wavepattern_up = WavePattern(waves_up, verbose=True)
             for rule in rules_to_check:
                 if wavepattern_up.check_rule(rule):
@@ -120,11 +143,17 @@ def worker(params: {}) -> {}:
                                     'new_option_impulse': new_option_impulse.values,
                                     'score': score
                                 }
-                                plot_pattern(df=data, wave_pattern=wavepattern_up,
-                                             title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
-                                                 new_option_impulse) + " - Score: " + "{:.2f}".format(score))
-                                sleep(1)
                                 results = results.append(result, ignore_index=True)
+                                wavepatterns_up_to_plot.append({
+                                    'wave_pattern': wavepattern_up,
+                                    'ticker': ticker,
+                                    'score': score
+                                })
+        if len(wavepatterns_up_to_plot) > 0:
+            plot_pattern(df=data, wave_patterns=wavepatterns_up_to_plot,
+                         title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
+                             new_option_impulse))  # " - Score: " + "{:.2f}".format(wp['score'])
+            sleep(1)
     return results
 
 

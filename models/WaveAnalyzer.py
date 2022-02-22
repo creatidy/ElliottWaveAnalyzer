@@ -49,7 +49,6 @@ class WaveAnalyzer:
         self.__waveoptions_down = WaveOptionsGenerator3(n_down)
 
     def find_5_impulsive_waves(self,
-                               idx_start: int,
                                wave_config: list = None):
         """
         Tries to find 5 consecutive waves (up, down, up, down, up) to build an impulsive 12345 wave
@@ -61,58 +60,63 @@ class WaveAnalyzer:
                 False otherwise
         """
 
+        new_df = self.df.reset_index()
+        all_inx_start = new_df[new_df['Minimum']].index.to_numpy()
+        result = []
 
+        for idx_start in all_inx_start:
+            if wave_config is None:
+                wave_config = [0, 0, 0, 0, 0]
 
-        if wave_config is None:
-            wave_config = [0, 0, 0, 0, 0]
+            wave1 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=idx_start, skip=wave_config[0])
+            wave1.label = '1'
+            wave1_end = wave1.idx_end
+            if wave1_end is None:
+                if self.verbose: print("Wave 1 has no End in Data")
+                continue
 
-        wave1 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=idx_start, skip=wave_config[0])
-        wave1.label = '1'
-        wave1_end = wave1.idx_end
-        if wave1_end is None:
-            if self.verbose: print("Wave 1 has no End in Data")
-            return False
+            wave2 = MonoWaveDown(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave1_end, skip=wave_config[1])
+            wave2.label = '2'
+            wave2_end = wave2.idx_end
+            if wave2_end is None:
+                if self.verbose: print("Wave 2 has no End in Data")
+                continue
 
-        wave2 = MonoWaveDown(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave1_end, skip=wave_config[1])
-        wave2.label = '2'
-        wave2_end = wave2.idx_end
-        if wave2_end is None:
-            if self.verbose: print("Wave 2 has no End in Data")
-            return False
+            wave3 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave2_end, skip=wave_config[2])
+            wave3.label = '3'
+            wave3_end = wave3.idx_end
+            if wave3_end is None:
+                if self.verbose: print("Wave 3 has no End in Data")
+                continue
 
-        wave3 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave2_end, skip=wave_config[2])
-        wave3.label = '3'
-        wave3_end = wave3.idx_end
-        if wave3_end is None:
-            if self.verbose: print("Wave 3 has no End in Data")
-            return False
+            wave4 = MonoWaveDown(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave3_end, skip=wave_config[3])
+            wave4.label = '4'
+            wave4_end = wave4.idx_end
 
-        wave4 = MonoWaveDown(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave3_end, skip=wave_config[3])
-        wave4.label = '4'
-        wave4_end = wave4.idx_end
+            if wave4_end is None:
+                if self.verbose: print("Wave 4 has no End in Data")
+                continue
 
-        if wave4_end is None:
-            if self.verbose: print("Wave 4 has no End in Data")
-            return False
+            if wave2.low_idx != wave4.low_idx and wave2.low > np.min(self.lows[wave2.low_idx:wave4.low_idx]):
+                continue
 
-        if wave2.low_idx != wave4.low_idx and wave2.low > np.min(self.lows[wave2.low_idx:wave4.low_idx]):
-            return False
+            if wave_config[4] is not None:
+                wave5 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave4_end, skip=wave_config[4])
+                wave5.label = '5'
+                wave5_end = wave5.idx_end
+                if wave5_end is None:
+                    if self.verbose: print("Wave 5 has no End in Data")
+                    continue
 
-        if wave_config[4] is not None:
-            wave5 = MonoWaveUp(lows=self.lows, highs=self.highs, dates=self.dates, idx_start=wave4_end, skip=wave_config[4])
-            wave5.label = '5'
-            wave5_end = wave5.idx_end
-            if wave5_end is None:
-                if self.verbose: print("Wave 5 has no End in Data")
-                return False
+                if wave4.low_idx != wave5.high_idx and wave4.low > np.min(self.lows[wave4.low_idx:wave5.high_idx]):
+                    if self.verbose: print('Low of Wave 4 higher than a low between Wave 4 and Wave 5')
+                    continue
+            else:
+                wave5 = None
 
-            if wave4.low_idx != wave5.high_idx and wave4.low > np.min(self.lows[wave4.low_idx:wave5.high_idx]):
-                if self.verbose: print('Low of Wave 4 higher than a low between Wave 4 and Wave 5')
-                return False
-        else:
-            wave5 = None
+            result.append([wave1, wave2, wave3, wave4, wave5])
 
-        return [wave1, wave2, wave3, wave4, wave5]
+        return result
 
     def find_corrective_wave(self,
                              idx_start: int,
