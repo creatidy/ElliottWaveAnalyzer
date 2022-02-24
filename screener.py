@@ -1,6 +1,5 @@
 from time import sleep
 
-import pandas
 import yfinance as yf
 import requests_cache
 import numpy as np
@@ -14,21 +13,23 @@ from models.WaveScore import WaveScore
 
 from multiprocessing import Pool
 
-POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
+POOL = 7  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
 INTERVAL = '5m'
 VLT_WINDOW = 12
 WAVE_UP_TO = 15
 WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
-TRESHOLD = 0.5
+WAVE_PROPORTION_THRESHOLD = 0.7  # Proportion score minimum
+WAVE_AGE_THRESHOLD = 0.7  # The last wave point should be later 80%
+LIMIT = 3  # Number of the best charts to present
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
            'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
-TICKERS = ['AUDUSD=X']
+# TICKERS = ['EURJPY=X']
 
 
 def main():
-    session = requests_cache.CachedSession('data/yfinance.cache')
+    session = requests_cache.CachedSession(cache_name='data/yfinance.cache', expire_after=300)
     session.headers['User-agent'] = 'screener.py'
     params = []
     report = DataFrame()
@@ -114,20 +115,20 @@ def worker(params: {}) -> {}:
     # loop over all combinations of wave options [i,j,k,l,m] for impulsive waves sorted from small, e.g.  [0,1,...] to
     # large e.g. [3,2, ...]
     results = DataFrame()
+    wavepatterns_up_to_plot = []
     for new_option_impulse in wave_options_impulse.options_sorted:
-
         all_waves_up = wa.find_5_impulsive_waves(wave_config=new_option_impulse.values)
-        wavepatterns_up_to_plot = []
         for waves_up in all_waves_up:
-            wavepattern_up = WavePattern(waves_up, verbose=True)
+            wavepattern_up = WavePattern(waves_up, verbose=False)
             for rule in rules_to_check:
                 if wavepattern_up.check_rule(rule):
                     if wavepattern_up in wavepatterns_up:
                         continue
                     else:
                         scoring = WaveScore(waves_up)
-                        score = scoring.value()
-                        if score > TRESHOLD:
+                        proportion_score = scoring.value()
+                        age_score = wavepattern_up.idx_end / data.index.size
+                        if proportion_score > WAVE_PROPORTION_THRESHOLD and age_score > WAVE_AGE_THRESHOLD:
                             to_check = []
                             if new_option_impulse.m is None and len(results) > 0:
                                 to_check = [r for r in results['new_option_impulse'] if r[0] == new_option_impulse.i and \
@@ -141,19 +142,21 @@ def worker(params: {}) -> {}:
                                     'ticker': ticker,
                                     'rule': rule.name,
                                     'new_option_impulse': new_option_impulse.values,
-                                    'score': score
+                                    'proportion_score': proportion_score,
+                                    'data_size': data.index.size,
+                                    'wave_end': wavepattern_up.idx_end,
+                                    'age_score': age_score
                                 }
                                 results = results.append(result, ignore_index=True)
                                 wavepatterns_up_to_plot.append({
                                     'wave_pattern': wavepattern_up,
-                                    'ticker': ticker,
-                                    'score': score
+                                    'result': result
                                 })
-        if len(wavepatterns_up_to_plot) > 0:
-            plot_pattern(df=data, wave_patterns=wavepatterns_up_to_plot,
-                         title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '): ' + str(
-                             new_option_impulse))  # " - Score: " + "{:.2f}".format(wp['score'])
-            sleep(1)
+    wavepatterns_up_to_plot = sorted(wavepatterns_up_to_plot, key=lambda w: w['result']['proportion_score'] * w['result']['age_score'], reverse=True)[:LIMIT]
+    if len(wavepatterns_up_to_plot) > 0:
+        plot_pattern(df=data, wave_patterns=wavepatterns_up_to_plot,
+                     title=ticker + ' (period: ' + PERIOD + ', interval: ' + INTERVAL + '):<BR />')
+        sleep(1)
     return results
 
 

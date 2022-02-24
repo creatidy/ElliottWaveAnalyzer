@@ -85,8 +85,10 @@ class WavePattern:
 
     @property
     def idx_end(self) -> int:
-        if 'wave5' in self.waves.keys():
+        if 'wave5' in self.waves.keys() and self.waves.get('wave5') is not None:
             return self.waves.get('wave5').idx_end
+        elif 'wave4' in self.waves.keys() and self.waves.get('wave4') is not None:
+            return self.waves.get('wave4').idx_end
         else:
             return self.waves.get('wave3').idx_end
 

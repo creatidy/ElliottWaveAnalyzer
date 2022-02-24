@@ -64,14 +64,16 @@ def convert_yf_data(df: pd.DataFrame) -> pd.DataFrame:
 
     return df_output
 
-def plot_pattern(df: pd.DataFrame, wave_patterns: object, title: str = '') -> object:
+def plot_pattern(df: pd.DataFrame, wave_patterns, title: str = ''):
     data = go.Ohlc(x=df['Date'],
                    open=df['Open'],
                    high=df['High'],
                    low=df['Low'],
-                   close=df['Close'])
-
+                   close=df['Close'],
+                   name='OHLC')
     input_data = [data]
+
+    r, g, b = 100, 105, 110
     for wp in wave_patterns:
         wave_pattern = wp['wave_pattern']
         monowaves = go.Scatter(x=wave_pattern.dates,
@@ -81,39 +83,23 @@ def plot_pattern(df: pd.DataFrame, wave_patterns: object, title: str = '') -> ob
                                textposition='middle right',
                                textfont=dict(size=15, color='#2c3035'),
                                line=dict(
-                                   color=('rgb(111, 126, 130)'),
+                                   color=(f'rgb({r}, {g}, {b})'),
                                    width=3),
+                               name=str(wp['result']['new_option_impulse'])
                                )
         input_data.append(monowaves)
+        title += f"> {str(wp['result']['new_option_impulse'])} Prop.=" + \
+                 "{:.2f} Age=".format(wp['result']['proportion_score']) + \
+                 "{:.2f}<BR />".format(wp['result']['age_score'])
+        r, g, b = g + 35, b - 35, r + 35
+        r = 0 if r > 200 else r
+        g = 0 if g > 200 else g
+        b = 0 if b > 200 else b
 
     layout = dict(title=title)
     fig = go.Figure(data=input_data, layout=layout)
     fig.update(layout_xaxis_rangeslider_visible=False)
     fig.show()
-
-
-# def plot_channel(df: pd.DataFrame, title: str = ''):
-#     data = go.Ohlc(x=df['Date'],
-#                    open=df['Open'],
-#                    high=df['High'],
-#                    low=df['Low'],
-#                    close=df['Close'])
-#
-#     monowaves = go.Scatter(x=df['Date'],
-#                            y=df['Lowest'],
-#                            text=df['Lowest'].name,
-#                            mode='lines+markers',
-#                            textposition='middle right',
-#                            textfont=dict(size=15, color='#2c3035'),
-#                            line=dict(
-#                                color=('rgb(111, 126, 130)'),
-#                                width=3),
-#                            )
-#     layout = dict(title=title)
-#     fig = go.Figure(data=[data, monowaves], layout=layout)
-#     fig.update(layout_xaxis_rangeslider_visible=False)
-#
-#     fig.show()
 
 def plot_monowave(df, monowave, title: str = ''):
     data = go.Ohlc(x=df['Date'],
