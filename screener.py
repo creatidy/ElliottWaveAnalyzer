@@ -13,10 +13,10 @@ from models.WaveScore import WaveScore
 
 from multiprocessing import Pool
 
-POOL = 7  # 1 for single process; 2 or more for multiprocessing (limited debugging)
+POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
 INTERVAL = '5m'
-VLT_WINDOW = 12
+VLT_WINDOW = 12  # Min/Max within VLT_WINDOW bars
 WAVE_UP_TO = 15
 WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
 WAVE_PROPORTION_THRESHOLD = 0.7  # Proportion score minimum
@@ -25,7 +25,7 @@ LIMIT = 3  # Number of the best charts to present
 TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
            'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
            'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
-# TICKERS = ['EURJPY=X']
+TICKERS = ['EURJPY=X']
 
 
 def main():
