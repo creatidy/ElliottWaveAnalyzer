@@ -1,17 +1,19 @@
-from time import sleep
-
 import yfinance as yf
 import requests_cache
 import numpy as np
-from pandas import DataFrame
+import os
+import MetaTrader5 as mt5
+from time import sleep
+from pandas import DataFrame, to_datetime
 from models.WavePattern import WavePattern
 from models.WaveRules import Impulse, LeadingDiagonal
 from models.WaveAnalyzer import WaveAnalyzer
 from models.WaveOptions import WaveOptionsGeneratorWithRange
 from models.helpers import plot_pattern
 from models.WaveScore import WaveScore
-
+from models.RoboForexData import RoboForexData
 from multiprocessing import Pool
+from datetime import datetime, timedelta
 
 POOL = 1  # 1 for single process; 2 or more for multiprocessing (limited debugging)
 PERIOD = '1d'
@@ -19,13 +21,18 @@ INTERVAL = '5m'
 VLT_WINDOW = 12  # Min/Max within VLT_WINDOW bars
 WAVE_UP_TO = 15
 WITH_RANGE = 3  # with range +/- in relation to WAVE_UP_TO, e.g. for wave option==7 --> range: 2 -> 12
-WAVE_PROPORTION_THRESHOLD = 0.7  # Proportion score minimum
-WAVE_AGE_THRESHOLD = 0.7  # The last wave point should be later 80%
+WAVE_PROPORTION_THRESHOLD = 0.5  # Proportion score minimum
+WAVE_AGE_THRESHOLD = 0.5  # The last wave point should be later 80%
 LIMIT = 3  # Number of the best charts to present
-TICKERS = ['EURUSD=X', 'JPY=X', 'GBPUSD=X', 'AUDUSD=X', 'NZDUSD=X', 'EURJPY=X', 'GBPJPY=X', 'EURGBP=X', 'EURCAD=X',
-           'EURSEK=X', 'EURCHF=X', 'EURHUF=X', 'EURJPY=X', 'CNY=X', 'HKD=X', 'SGD=X', 'INR=X', 'MXN=X', 'PHP=X',
-           'IDR=X', 'THB=X', 'MYR=X', 'ZAR=X', 'RUB=X']
-TICKERS = ['EURJPY=X']
+COUNT = 200  # Number of bars
+LOOPBACK_DAYS = 1  # Number of days to loop back
+TICKERS = ['EURUSD', 'JPYUSD', 'GBPUSD', 'AUDUSD', 'NZDUSD', 'EURJPY', 'GBPJPY', 'EURGBP', 'EURCAD',
+           'EURSEK', 'EURCHF', 'EURHUF', 'EURJPY', 'CNYUSD', 'HKDUSD', 'SGDUSD', 'INRUSD', 'MXNUSD', 'PHPUSD',
+           'IDRUSD', 'THBUSD', 'MYRUSD', 'ZARUSD', 'RUBUSD']
+TICKERS = ['AUDUSD']
+server = os.getenv('ROBOFOREX_SERVER', 'RoboForex-ECN')
+user = int(os.getenv('ROBOFOREX_USER', '123456'))
+password = os.getenv('ROBOFOREX_PASSWORD', '')
 
 
 def main():
@@ -34,14 +41,28 @@ def main():
     params = []
     report = DataFrame()
     for ticker in TICKERS:
-        yf_ticker = yf.Ticker(ticker, session=session)
-        data = yf_ticker.history(period=PERIOD, interval=INTERVAL)
+        # yf_ticker = yf.Ticker(ticker, session=session)
+        # data = yf_ticker.history(period=PERIOD, interval=INTERVAL)
 
+        rf = RoboForexData(server, user, password)
+        data_rf = rf.get_bars(symbol=ticker,
+                              timeframe=mt5.TIMEFRAME_M5,
+                              date_from=datetime.now()-timedelta(LOOPBACK_DAYS),
+                              count=COUNT)
+        if data_rf is None:
+            print(f"No data for: {ticker}")
+            continue
+        rf_dataframe = DataFrame(data_rf)
+
+        rf_dataframe.loc[:, 'Date'] = [datetime.fromtimestamp(x) for x in DataFrame(rf_dataframe)["time"]]
+        rf_dataframe.rename(columns={'open': 'Open',
+                                     'high': 'High',
+                                     'low': 'Low',
+                                     'close': 'Close'}, inplace=True)
+        data = rf_dataframe[["Date", "Open", "High", "Low", "Close"]]
         # Merging 1h into 4h dataframe
         # ohlc_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last'}
         # data = hist_1h.resample('240T').apply(ohlc_dict).dropna(how='any')
-
-        data['Date'] = data.index
 
         args = {
             'ticker': ticker,
@@ -70,8 +91,8 @@ def find_minimums(data: DataFrame):
     Finds local minimal values
     '''
 
-    data['Lowest_Start'] = data['Low'].rolling(window=VLT_WINDOW, min_periods=VLT_WINDOW).min()
-    data['Minimum_Start'] = data['Low'] == data['Lowest_Start']
+    data.loc[:, 'Lowest_Start'] = data['Low'].rolling(window=VLT_WINDOW, min_periods=VLT_WINDOW).min()
+    data.loc[:, 'Minimum_Start'] = data['Low'] == data['Lowest_Start']
     # Reverse datafreame
     data = data.iloc[::-1]
     data.loc[:, 'Lowest_End'] = data['Low'].rolling(window=VLT_WINDOW, min_periods=VLT_WINDOW).min()

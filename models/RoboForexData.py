@@ -1,14 +1,9 @@
 import MetaTrader5 as mt5
-import os
-from datetime import datetime
+
 
 class RoboForexData:
 
-    def __init__(self):
-        server = os.getenv('ROBOFOREX_SERVER', 'RoboForex-ECN')
-        user = int(os.getenv('ROBOFOREX_USER', '123456'))
-        password = os.getenv('ROBOFOREX_PASSWORD', '')
-
+    def __init__(self, server, user, password):
         # establish MetaTrader 5 connection to a specified trading account
         if not mt5.initialize(login=user, server=server, password=password):
             print("initialize() failed, error code =", mt5.last_error())
